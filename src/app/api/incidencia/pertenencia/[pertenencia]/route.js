@@ -1,47 +1,52 @@
 import { NextResponse } from "next/server";
 
-const url = "https://66ca95fa59f4350f064f7413.mockapi.io/usuario";
+const baseUrl = "https://66ca96db59f4350f064f7699.mockapi.io/incidencia/1";
 
 export async function GET(request, { params }) {
-    const { pertenencia } = params;
-
     try {
-        // Decodificar el valor de pertenencia (por si tiene %20 u otros caracteres codificados)
-        const decodedPertenencia = decodeURIComponent(pertenencia);
+        // Decodificar el valor del parámetro 'pertenencia' de forma segura
+        const pertenencia = decodeURIComponent(params?.pertenencia || "");
 
-        // Validar que el campo pertenencia esté presente
-        if (!decodedPertenencia) {
+        // Validar si el parámetro 'pertenencia' está presente
+        if (!pertenencia) {
             return NextResponse.json(
-                { error: "El campo pertenencia es obligatorio" },
+                { error: "El parámetro 'pertenencia' es obligatorio." },
                 { status: 400 }
             );
         }
 
-        // Hacer la solicitud a MockAPI para obtener todos los usuarios
-        const response = await fetch(url);
+        // Obtener los datos de incidencias desde la API
+        const response = await fetch(baseUrl);
 
         if (!response.ok) {
-            throw new Error(`Error al obtener usuarios: ${response.statusText}`);
+            throw new Error("Error al obtener las incidencias.");
         }
 
-        const users = await response.json();
+        const data = await response.json();
 
-        // Filtrar usuarios por pertenencia
-        const filteredUsers = users.filter((u) => u.pertenencia === decodedPertenencia);
+        // Verificar si existe el campo "incidencia"
+        const incidencias = data.incidencia || [];
 
-        if (filteredUsers.length === 0) {
+        // Filtrar las incidencias por pertenencia
+        const incidenciasFiltradas = incidencias.filter(
+            (item) =>
+                item.usuario?.pertenencia &&
+                item.usuario.pertenencia.toLowerCase() === pertenencia.toLowerCase()
+        );
+
+        if (incidenciasFiltradas.length === 0) {
             return NextResponse.json(
-                { error: `No se encontraron usuarios con la pertenencia: ${decodedPertenencia}` },
+                { error: `No se encontraron incidencias para la pertenencia: ${pertenencia}` },
                 { status: 404 }
             );
         }
 
-        // Retornar los datos de los usuarios filtrados
-        return NextResponse.json(filteredUsers, { status: 200 });
+        // Retornar las incidencias filtradas
+        return NextResponse.json(incidenciasFiltradas, { status: 200 });
     } catch (error) {
-        console.error("Error al filtrar usuarios por pertenencia:", error);
+        console.error("Error al filtrar incidencias por pertenencia:", error);
         return NextResponse.json(
-            { error: "Error interno del servidor" },
+            { error: "Error interno del servidor." },
             { status: 500 }
         );
     }
