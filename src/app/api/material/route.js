@@ -12,6 +12,7 @@ const materialSchema = z.object({
     cantidad: z.string().min(1, "La cantidad es obligatoria"),
     stock: z.number().min(0, "El stock no puede ser negativo"),
     precio_unidad: z.number().min(0, "El precio debe ser positivo"),
+    fecha: z.string().optional(), // Campo adicional para la fecha
 });
 
 const materialsSchema = z.array(materialSchema);
@@ -40,8 +41,8 @@ export async function POST(request) {
     try {
         const body = await request.json();
 
-        // Validar los datos enviados
-        const validationResult = materialsSchema.safeParse(body);
+        // Validar el dato enviado (un solo objeto)
+        const validationResult = materialSchema.safeParse(body);
         if (!validationResult.success) {
             return NextResponse.json(
                 { error: validationResult.error.errors.map(err => err.message) },
@@ -49,10 +50,23 @@ export async function POST(request) {
             );
         }
 
-        const newMaterials = validationResult.data.map(material => ({
-            ...material,
-            id: material.id || randomUUID(), // Generar UUID si no se proporciona
-        }));
+        // Obtener la fecha actual en formato DD/MM/YYYY
+        const obtenerFechaActual = () => {
+            const fecha = new Date();
+            const dia = String(fecha.getDate()).padStart(2, "0");
+            const mes = String(fecha.getMonth() + 1).padStart(2, "0"); // Enero es 0
+            const anio = fecha.getFullYear();
+            return `${dia}/${mes}/${anio}`;
+        };
+
+        const fechaActual = obtenerFechaActual();
+
+        // Preparar el material con datos adicionales (ID y fecha)
+        const newMaterial = {
+            ...validationResult.data,
+            id: validationResult.data.id || randomUUID(), // Generar UUID si no se proporciona
+            fecha: validationResult.data.fecha || fechaActual, // Agregar fecha si no existe
+        };
 
         // Obtener el objeto actual desde MockAPI
         const response = await fetch(url);
@@ -63,7 +77,7 @@ export async function POST(request) {
         const currentData = await response.json();
 
         // Actualizar el campo "material"
-        const updatedMaterials = [...(currentData.material || []), ...newMaterials];
+        const updatedMaterials = [...(currentData.material || []), newMaterial];
 
         // Enviar los datos actualizados a MockAPI
         const patchResponse = await fetch(url, {
@@ -76,9 +90,7 @@ export async function POST(request) {
             throw new Error("Failed to update materials");
         }
 
-
-
-        return NextResponse.json(newMaterials || [], { status: 200 });
+        return NextResponse.json(newMaterial, { status: 200 });
     } catch (error) {
         console.error("Error updating materials:", error);
         return NextResponse.json(

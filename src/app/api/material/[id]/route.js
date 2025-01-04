@@ -1,92 +1,164 @@
 import { NextResponse } from "next/server";
 
-// URL interna de tu API
-const apiUrl = "https://66ca95fa59f4350f064f7413.mockapi.io/material/1";
+const url = "https://66ca95fa59f4350f064f7413.mockapi.io/material/1";
 
-// ✅ GET (Obtener material por ID)
+// Función auxiliar para obtener los datos
+const fetchData = async () => {
+    const response = await fetch(url);
+    if (!response.ok) {
+        throw new Error("Error al obtener los datos del servidor");
+    }
+    return response.json();
+};
+
+// Manejo del endpoint dinámico [id]
 export async function GET(request, { params }) {
-    const { id } = params;
-
     try {
-        // Realiza una solicitud interna a tu propia API
-        const response = await fetch(apiUrl);
-        if (!response.ok) throw new Error("Failed to fetch materials");
+        const { id } = params;
 
-        const materials = await response.json();
-
-        // Filtrar el material por ID
-        const foundMaterial = materials.find(item => item.id === id);
-        if (!foundMaterial) {
-            return NextResponse.json({ error: "Material not found" }, { status: 404 });
+        // Validar que `id` esté presente
+        if (!id) {
+            return NextResponse.json(
+                { error: "El parámetro 'id' es obligatorio" },
+                { status: 400 }
+            );
         }
 
-        return NextResponse.json(foundMaterial);
+        // Obtener los materiales de MockAPI
+        const data = await fetchData();
+
+        // Buscar el material por `id`
+        const material = (data.material || []).find(item => item.id === id);
+
+        if (!material) {
+            return NextResponse.json(
+                { error: `No se encontró material con id: ${id}` },
+                { status: 404 }
+            );
+        }
+
+        return NextResponse.json(material, { status: 200 });
     } catch (error) {
-        console.error("Error fetching material by ID:", error);
-        return NextResponse.json({ error: "Failed to fetch material" }, { status: 500 });
-    }
-}
-
-// ✅ PATCH (Actualizar material por ID)
-export async function PATCH(request, { params }) {
-    const { id } = params;
-
-    try {
-        const body = await request.json();
-
-        // Realiza una solicitud interna para obtener los materiales
-        const response = await fetch(apiUrl);
-        if (!response.ok) throw new Error("Failed to fetch materials");
-
-        const materials = await response.json();
-
-        // Buscar y actualizar el material por ID
-        const updatedMaterials = materials.map(item =>
-            item.id === id ? { ...item, ...body } : item
+        console.error("Error al buscar el material:", error.message);
+        return NextResponse.json(
+            { error: "No se pudo obtener el material" },
+            { status: 500 }
         );
-
-        // Enviar los datos actualizados a la API
-        const patchResponse = await fetch(apiUrl, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(updatedMaterials),
-        });
-
-        if (!patchResponse.ok) throw new Error("Failed to update material");
-
-        return NextResponse.json({ message: "Material updated successfully" });
-    } catch (error) {
-        console.error("Error updating material by ID:", error);
-        return NextResponse.json({ error: "Failed to update material" }, { status: 500 });
     }
 }
 
-// ✅ DELETE (Eliminar material por ID)
-export async function DELETE(request, { params }) {
-    const { id } = params;
 
+export async function PATCH(request, { params }) {
     try {
-        // Realiza una solicitud interna para obtener los materiales
-        const response = await fetch(apiUrl);
-        if (!response.ok) throw new Error("Failed to fetch materials");
+        const { id } = params;
 
-        const materials = await response.json();
+        // Validar que `id` esté presente
+        if (!id) {
+            return NextResponse.json(
+                { error: "El parámetro 'id' es obligatorio" },
+                { status: 400 }
+            );
+        }
 
-        // Filtrar los materiales eliminando el material con el ID especificado
-        const remainingMaterials = materials.filter(item => item.id !== id);
+        const updates = await request.json(); // Datos a actualizar
 
-        // Enviar los datos actualizados a la API
-        const patchResponse = await fetch(apiUrl, {
-            method: "PATCH",
+        // Obtener los datos actuales
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error("Error al obtener los datos del servidor");
+        }
+
+        const data = await response.json();
+        const materials = data.material || [];
+
+        // Encontrar el material por `id`
+        const materialIndex = materials.findIndex(item => item.id === id);
+        if (materialIndex === -1) {
+            return NextResponse.json(
+                { error: `No se encontró material con id: ${id}` },
+                { status: 404 }
+            );
+        }
+
+        // Actualizar los datos del material
+        materials[materialIndex] = {
+            ...materials[materialIndex],
+            ...updates,
+        };
+
+        // Guardar los datos actualizados
+        const patchResponse = await fetch(url, {
+            method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(remainingMaterials),
+            body: JSON.stringify({ material: materials }),
         });
 
-        if (!patchResponse.ok) throw new Error("Failed to delete material");
+        if (!patchResponse.ok) {
+            throw new Error("Error al guardar los cambios en el servidor");
+        }
 
-        return NextResponse.json({ message: "Material deleted successfully" });
+        return NextResponse.json(materials[materialIndex], { status: 200 });
     } catch (error) {
-        console.error("Error deleting material by ID:", error);
-        return NextResponse.json({ error: "Failed to delete material" }, { status: 500 });
+        console.error("Error al actualizar el material:", error.message);
+        return NextResponse.json(
+            { error: "No se pudo actualizar el material" },
+            { status: 500 }
+        );
+    }
+}
+
+
+export async function DELETE(request, { params }) {
+    try {
+        const { id } = params;
+
+        // Validar que `id` esté presente
+        if (!id) {
+            return NextResponse.json(
+                { error: "El parámetro 'id' es obligatorio" },
+                { status: 400 }
+            );
+        }
+
+        // Obtener los datos actuales
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error("Error al obtener los datos del servidor");
+        }
+
+        const data = await response.json();
+        const materials = data.material || [];
+
+        // Filtrar para excluir el material con `id` correspondiente
+        const updatedMaterials = materials.filter(item => item.id !== id);
+
+        if (materials.length === updatedMaterials.length) {
+            return NextResponse.json(
+                { error: `No se encontró material con id: ${id}` },
+                { status: 404 }
+            );
+        }
+
+        // Guardar los datos actualizados
+        const deleteResponse = await fetch(url, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ material: updatedMaterials }),
+        });
+
+        if (!deleteResponse.ok) {
+            throw new Error("Error al guardar los cambios en el servidor");
+        }
+
+        return NextResponse.json(
+            { message: `Material con id ${id} eliminado con éxito` },
+            { status: 200 }
+        );
+    } catch (error) {
+        console.error("Error al eliminar el material:", error.message);
+        return NextResponse.json(
+            { error: "No se pudo eliminar el material" },
+            { status: 500 }
+        );
     }
 }
