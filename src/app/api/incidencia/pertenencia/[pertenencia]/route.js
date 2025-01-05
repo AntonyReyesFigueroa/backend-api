@@ -1,4 +1,15 @@
+import Cors from 'cors';  // Importar el paquete CORS
+import initMiddleware from '../../../lib/init-middleware'; // Importar el middleware de CORS
 import { NextResponse } from "next/server";
+
+// Inicializar el middleware CORS
+const cors = initMiddleware(
+    Cors({
+        methods: ['GET', 'POST', 'PUT', 'DELETE'], // Métodos permitidos
+        origin: '*', // Permitir todos los orígenes (en producción, restringe a tu dominio específico)
+    })
+);
+
 
 const baseUrl = "https://66ca96db59f4350f064f7699.mockapi.io/incidencia/1";
 
